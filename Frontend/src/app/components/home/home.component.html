@@ -1,0 +1,91 @@
+<div class="home-container">
+  <mat-card class="header-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>computer</mat-icon>
+        Monitored Systems
+      </mat-card-title>
+      <mat-card-subtitle>
+        Manage and monitor your critical infrastructure systems
+      </mat-card-subtitle>
+    </mat-card-header>
+  </mat-card>
+
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner></mat-spinner>
+    <p>Loading systems...</p>
+  </div>
+
+  <mat-card *ngIf="!loading && systems.length === 0" class="empty-state">
+    <mat-icon>info</mat-icon>
+    <h2>No Systems Configured</h2>
+    <p>Start by adding a system to monitor</p>
+    <button mat-raised-button color="primary" routerLink="/add-system">
+      <mat-icon>add</mat-icon>
+      Add First System
+    </button>
+  </mat-card>
+
+  <mat-card *ngIf="!loading && systems.length > 0" class="table-card">
+    <table mat-table [dataSource]="systems" class="systems-table">
+
+      <!-- Local Name Column -->
+      <ng-container matColumnDef="localName">
+        <th mat-header-cell *matHeaderCellDef>System Name</th>
+        <td mat-cell *matCellDef="let system">
+          <div class="system-name">
+            <mat-icon>dns</mat-icon>
+            <span>{{ system.localName }}</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- IP Address Column -->
+      <ng-container matColumnDef="ipAddress">
+        <th mat-header-cell *matHeaderCellDef>IP Address</th>
+        <td mat-cell *matCellDef="let system">{{ system.ipAddress }}</td>
+      </ng-container>
+
+      <!-- System Type Column -->
+      <ng-container matColumnDef="systemType">
+        <th mat-header-cell *matHeaderCellDef>Type</th>
+        <td mat-cell *matCellDef="let system">
+          <mat-chip>{{ system.systemType }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <!-- Date Configured Column -->
+      <ng-container matColumnDef="dateConfigured">
+        <th mat-header-cell *matHeaderCellDef>Date Configured</th>
+        <td mat-cell *matCellDef="let system">{{ formatDate(system.date_configured) }}</td>
+      </ng-container>
+
+      <!-- Status Column -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let system">
+          <mat-chip [color]="system.is_active ? 'primary' : 'warn'" selected>
+            {{ system.is_active ? 'Active' : 'Inactive' }}
+          </mat-chip>
+        </td>
+      </ng-container>
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let system">
+          <button *ngIf=system.is_active mat-icon-button color="primary" [routerLink]="['/visualization', system.id]"
+            matTooltip="View Analysis">
+            <mat-icon>analytics</mat-icon>
+          </button>
+          <button mat-icon-button color="warn" (click)="deleteSystem(system)" matTooltip="Remove System">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+  </mat-card>
+</div>

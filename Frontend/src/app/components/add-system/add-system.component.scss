@@ -1,0 +1,59 @@
+.add-system-container {
+  padding: 80px 24px 24px 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.form-card {
+  mat-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.5rem;
+  }
+}
+
+mat-card-content {
+  padding: 24px;
+}
+
+.section-title {
+  margin: 24px 0 16px 0;
+  color: rgba(0,0,0,0.7);
+  font-size: 1.1rem;
+  font-weight: 500;
+  border-bottom: 2px solid #3f51b5;
+  padding-bottom: 8px;
+  
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+.full-width {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  
+  .half-width {
+    flex: 1;
+    margin-bottom: 16px;
+  }
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0,0,0,0.12);
+  
+  button mat-icon {
+    margin-right: 8px;
+  }
+}

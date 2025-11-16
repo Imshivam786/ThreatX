@@ -1,0 +1,278 @@
+<div class="visualization-container">
+    <!-- System Header -->
+    <mat-card class="header-card" *ngIf="system">
+        <mat-card-header>
+            <mat-card-title>
+                <mat-icon>analytics</mat-icon>
+                {{ system.localName }} - Threat Analysis Dashboard
+            </mat-card-title>
+            <mat-card-subtitle>
+                {{ system.ipAddress }} | {{ system.systemType }}
+            </mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-actions>
+            <button mat-raised-button color="primary" (click)="startAnalysis()" [disabled]="analyzing || autoRefresh">
+                <mat-icon>play_arrow</mat-icon>
+                {{ analyzing ? 'Analyzing...' : 'Start Analysis' }}
+            </button>
+            <button mat-raised-button color="warn" (click)="stopAnalysis()" [disabled]="!autoRefresh">
+                <mat-icon>stop</mat-icon>
+                Stop Analysis
+            </button>
+            <button mat-button routerLink="/home">
+                <mat-icon>arrow_back</mat-icon>
+                Back to Home
+            </button>
+        </mat-card-actions>
+    </mat-card>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+        <mat-spinner></mat-spinner>
+        <p>Loading system information...</p>
+    </div>
+
+    <!-- No Data State -->
+    <mat-card *ngIf="!loading && !threatData && !analyzing" class="empty-state">
+        <mat-icon>info</mat-icon>
+        <h2>No Analysis Data Available</h2>
+        <p>Click "Start Analysis" to begin monitoring this system for threats</p>
+    </mat-card>
+
+    <!-- Threat Data Dashboard -->
+    <div *ngIf="threatData" class="dashboard-grid">
+
+        <!-- Statistics Cards -->
+        <div class="stats-row">
+            <mat-card class="stat-card">
+                <mat-card-content>
+                    <div class="stat-icon requests">
+                        <mat-icon>dns</mat-icon>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ threatData.total_requests | number }}</h3>
+                        <p>Total Requests</p>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <mat-card class="stat-card">
+                <mat-card-content>
+                    <div class="stat-icon threats">
+                        <mat-icon>warning</mat-icon>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ threatData.threats_detected | number }}</h3>
+                        <p>Threats Detected</p>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <mat-card class="stat-card">
+                <mat-card-content>
+                    <div class="stat-icon high-severity">
+                        <mat-icon>dangerous</mat-icon>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ threatData.high_severity_threats | number }}</h3>
+                        <p>High Severity</p>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <mat-card class="stat-card">
+                <mat-card-content>
+                    <div class="stat-icon detection-rate">
+                        <mat-icon>speed</mat-icon>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ ((threatData.threats_detected / threatData.total_requests) * 100 || 0).toFixed(2) }}%
+                        </h3>
+                        <p>Detection Rate</p>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+            <mat-card class="stat-card">
+                <mat-card-content>
+                    <div class="stat-icon auto-resolved">
+                        <mat-icon>verified</mat-icon>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ threatData.auto_resolved_threats | number }}</h3>
+                        <p>Auto-Resolved</p>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+
+        <!-- Charts Row 1: Time Series -->
+        <!-- Charts Row 1: Time Series -->
+        <mat-card class="chart-card full-width">
+            <mat-card-header>
+                <mat-card-title>
+                    <mat-icon>show_chart</mat-icon>
+                    Real-Time Activity Monitor
+                </mat-card-title>
+                <mat-chip *ngIf="autoRefresh" color="primary" selected>
+                    <mat-icon>refresh</mat-icon>
+                    Live
+                </mat-chip>
+            </mat-card-header>
+            <mat-card-content>
+                <div class="chart-container">
+                    <canvas #lineChart baseChart [type]="lineChartType" [data]="lineChartData"
+                        [options]="lineChartOptions">
+                    </canvas>
+                </div>
+            </mat-card-content>
+        </mat-card>
+
+
+        <!-- Charts Row 2: Severity & Attack Types (Side by Side) -->
+        <div class="charts-row">
+            <mat-card class="chart-card">
+                <mat-card-header>
+                    <mat-card-title>
+                        <mat-icon>pie_chart</mat-icon>
+                        Threat Severity Distribution
+                    </mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    <div class="chart-container">
+                        <canvas #pieChart baseChart [type]="pieChartType" [data]="pieChartData" [options]="pieChartOptions">
+                        </canvas>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <mat-card class="chart-card">
+                <mat-card-header>
+                    <mat-card-title>
+                        <mat-icon>bar_chart</mat-icon>
+                        Top Attack Types
+                    </mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    <div class="chart-container">
+                        <canvas #barChart baseChart [type]="barChartType" [data]="barChartData" [options]="barChartOptions">
+                        </canvas>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+
+
+        <mat-card class="chart-card full-width">
+            <mat-card-header>
+                <mat-card-title>
+                    <mat-icon>trending_up</mat-icon>
+                    Threat Resolution Tracking
+                </mat-card-title>
+                <mat-chip color="accent" selected>
+                    {{ threatData.resolved_threats || 0 }} Resolved
+                </mat-chip>
+            </mat-card-header>
+            <mat-card-content>
+                <div class="chart-container">
+                    <canvas #resolutionChart baseChart [type]="resolutionChartType" [data]="resolutionChartData"
+                        [options]="resolutionChartOptions">
+                    </canvas>
+                </div>
+            </mat-card-content>
+        </mat-card>
+
+
+        <!-- Recent Alerts Table -->
+        <mat-card class="alerts-card full-width">
+            <mat-card-header>
+                <mat-card-title>
+                    <mat-icon>notifications_active</mat-icon>
+                    Recent Alerts (Last 10)
+                </mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+                <div class="table-container" *ngIf="threatData.recent_alerts && threatData.recent_alerts.length > 0">
+                    <table mat-table [dataSource]="threatData.recent_alerts" class="alerts-table">
+
+                        <!-- Timestamp Column -->
+                        <ng-container matColumnDef="timestamp">
+                            <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+                            <td mat-cell *matCellDef="let alert">{{ formatTimestamp(alert.timestamp) }}</td>
+                        </ng-container>
+
+                        <!-- Severity Column -->
+                        <ng-container matColumnDef="severity">
+                            <th mat-header-cell *matHeaderCellDef>Severity</th>
+                            <td mat-cell *matCellDef="let alert">
+                                <mat-chip [color]="getSeverityColor(alert.severity)" selected>
+                                    {{ alert.severity }}
+                                </mat-chip>
+                            </td>
+                        </ng-container>
+
+                        <!-- Attack Type Column -->
+                        <ng-container matColumnDef="attackType">
+                            <th mat-header-cell *matHeaderCellDef>Attack Type</th>
+                            <td mat-cell *matCellDef="let alert">
+                                <strong>{{ alert.attack_type }}</strong>
+                            </td>
+                        </ng-container>
+
+                        <!-- Source IP Column -->
+                        <ng-container matColumnDef="sourceIp">
+                            <th mat-header-cell *matHeaderCellDef>Source IP</th>
+                            <td mat-cell *matCellDef="let alert">
+                                <code>{{ alert.source_ip }}</code>
+                            </td>
+                        </ng-container>
+
+                        <!-- Description Column -->
+                        <ng-container matColumnDef="description">
+                            <th mat-header-cell *matHeaderCellDef>Description</th>
+                            <td mat-cell *matCellDef="let alert">{{ alert.description }}</td>
+                        </ng-container>
+
+                        <tr mat-header-row *matHeaderRowDef="alertColumns"></tr>
+                        <tr mat-row *matRowDef="let row; columns: alertColumns;"></tr>
+                        <!-- Status Column -->
+                        <ng-container matColumnDef="status">
+                            <th mat-header-cell *matHeaderCellDef>Status</th>
+                            <td mat-cell *matCellDef="let alert">
+                                <mat-chip [color]="alert.status === 'resolved' ? 'primary' : 'warn'" selected>
+                                    {{ alert.status }}
+                                    <span *ngIf="alert.resolved_by === 'auto-system'" style="font-size: 10px;">
+                                        (auto)</span>
+                                </mat-chip>
+                            </td>
+                        </ng-container>
+
+                        <!-- Actions Column -->
+                        <ng-container matColumnDef="actions">
+                            <th mat-header-cell *matHeaderCellDef>Actions</th>
+                            <td mat-cell *matCellDef="let alert">
+                                <button mat-icon-button color="primary"
+                                    *ngIf="alert.severity === 'High' && !alert.logged_to_system && alert.status !== 'resolved'"
+                                    (click)="logAlertToSystem(alert.id, alert.severity)" matTooltip="Log to System">
+                                    <mat-icon>send</mat-icon>
+                                </button>
+                                <button mat-icon-button color="accent" *ngIf="alert.status === 'active'"
+                                    (click)="resolveAlert(alert.id)" matTooltip="Mark as Resolved">
+                                    <mat-icon>check_circle</mat-icon>
+                                </button>
+                                <mat-icon *ngIf="alert.status === 'resolved'" color="primary" matTooltip="Resolved">
+                                    done_all
+                                </mat-icon>
+                            </td>
+                        </ng-container>
+
+                    </table>
+                </div>
+
+                <div *ngIf="!threatData.recent_alerts || threatData.recent_alerts.length === 0" class="no-alerts">
+                    <mat-icon>check_circle</mat-icon>
+                    <p>No alerts detected - System is secure</p>
+                </div>
+            </mat-card-content>
+        </mat-card>
+    </div>
+</div>
