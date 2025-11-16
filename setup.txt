@@ -1,0 +1,432 @@
+================================================================================
+OSINT-BASED CYBER THREAT DETECTION SYSTEM
+Quick Setup Guide
+================================================================================
+
+PROJECT OVERVIEW
+----------------
+Real-time cyber threat detection system with:
+✅ Multi-system monitoring via SSH
+✅ Machine Learning threat detection
+✅ Automatic high-severity threat response & logging
+✅ Real-time visualization dashboard
+✅ OSINT threat intelligence integration
+
+TECH STACK: FastAPI + Angular + PostgreSQL + Docker + ML
+
+================================================================================
+SECTION 1: INSTALL REQUIRED SOFTWARE
+================================================================================
+
+1.1 Download & Install (in this order)
+---------------------------------------
+[ ] Python 3.9+           https://www.python.org/downloads/
+    ⚠️ Check "Add Python to PATH" during installation
+    
+[ ] Node.js 16+           https://nodejs.org/
+    
+[ ] PostgreSQL 12+        https://www.postgresql.org/download/
+    ⚠️ Remember your postgres password!
+    
+[ ] Docker Desktop        https://www.docker.com/products/docker-desktop
+    
+[ ] Angular CLI           Open Command Prompt and run:
+    npm install -g @angular/cli@18
+
+1.2 Verify Installation
+------------------------
+Open Command Prompt and verify:
+
+python --version        # Should show 3.9+
+node --version          # Should show 16+
+ng version             # Should show Angular CLI 18
+psql --version         # Should show PostgreSQL 12+
+docker --version       # Should show Docker 20+
+
+⚠️ If any command fails, that software isn't installed correctly!
+
+================================================================================
+SECTION 2: DATABASE SETUP
+================================================================================
+
+2.1 Create Database
+-------------------
+psql -U postgres
+
+Enter your password, then run:
+
+CREATE DATABASE threat_detection;
+\q
+
+2.2 Update Backend Configuration
+---------------------------------
+Edit: backend\.env
+
+Change this line to use YOUR PostgreSQL password:
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD_HERE@localhost:5432/threat_detection
+
+Save the file.
+
+================================================================================
+SECTION 3: BACKEND SETUP
+================================================================================
+
+3.1 Install Python Dependencies
+--------------------------------
+cd backend
+pip install -r requirements.txt
+
+⏱️ Takes 3-5 minutes
+
+3.2 Initialize Database
+------------------------
+python create_model.py      # Creates ML model
+python init_db.py          # Creates database tables
+python update_db.py        # Adds resolution tracking columns
+
+Expected outputs:
+✅ ML Model created successfully!
+✅ Database tables created successfully!
+✅ Database update complete!
+
+3.3 Start Backend
+-----------------
+python run.py
+
+Expected output:
+🚀 Starting OSINT Cyber Threat Detection System v1.0.0
+📡 Server will be available at: http://localhost:8000
+
+✅ Backend running! Open http://localhost:8000/docs to verify.
+
+⚠️ KEEP THIS TERMINAL RUNNING!
+
+================================================================================
+SECTION 4: FRONTEND SETUP
+================================================================================
+
+4.1 Install Node Dependencies
+------------------------------
+Open NEW Command Prompt:
+
+cd frontend
+npm install
+
+⏱️ Takes 2-3 minutes
+
+4.2 Start Frontend
+------------------
+ng serve
+
+Expected output:
+** Angular Live Development Server is listening on localhost:4200 **
+
+✅ Frontend running! Open http://localhost:4200
+
+⚠️ KEEP THIS TERMINAL RUNNING!
+
+You should now see the application dashboard!
+
+================================================================================
+SECTION 5: DOCKER SETUP (MONITORED SYSTEMS)
+================================================================================
+
+5.1 Create First Monitored System
+----------------------------------
+Open NEW Command Prompt:
+
+# Pull image
+docker pull rastasheep/ubuntu-sshd:18.04
+
+# Create container
+docker run -d --name monitored_system_1 -p 8080:80 -p 2222:22 rastasheep/ubuntu-sshd:18.04
+
+# Install Apache (for log generation)
+docker exec -e DEBIAN_FRONTEND=noninteractive monitored_system_1 apt-get update
+docker exec -e DEBIAN_FRONTEND=noninteractive monitored_system_1 apt-get install -y apache2
+docker exec monitored_system_1 service apache2 start
+
+# Verify
+docker exec monitored_system_1 service apache2 status
+
+Should show: "apache2 is running"
+
+5.2 Test SSH Connection
+------------------------
+ssh -p 2222 root@127.0.0.1
+
+Password: root
+
+If you see root@xxxxx:~# prompt, it works! Type: exit
+
+5.3 Create Second System (Optional)
+------------------------------------
+docker run -d --name monitored_system_2 -p 8081:80 -p 2223:22 rastasheep/ubuntu-sshd:18.04
+docker exec -e DEBIAN_FRONTEND=noninteractive monitored_system_2 apt-get update
+docker exec -e DEBIAN_FRONTEND=noninteractive monitored_system_2 apt-get install -y apache2
+docker exec monitored_system_2 service apache2 start
+
+================================================================================
+SECTION 6: ADD SYSTEMS TO APPLICATION
+================================================================================
+
+6.1 Add First System
+---------------------
+1. Open http://localhost:4200
+2. Click "Add System" (+ button in navbar)
+3. Fill form:
+
+   Local Name: Monitored System 1
+   IP Address: 127.0.0.1
+   System Type: Web Server
+   Description: First monitored container
+   SSH Port: 2222
+   SSH Username: root
+   SSH Password: root
+   Log Path: /var/log
+
+4. Click "Add System"
+5. Success! System appears in home page table
+
+6.2 Add Second System (if created)
+-----------------------------------
+Repeat above with:
+   Local Name: Monitored System 2
+   SSH Port: 2223 (different!)
+   (everything else same)
+
+================================================================================
+SECTION 7: GENERATE TEST TRAFFIC & START ANALYSIS
+================================================================================
+
+7.1 Generate Attack Traffic
+----------------------------
+Open Command Prompt or PowerShell:
+
+# Normal requests
+curl http://localhost:8080/
+
+# HIGH Severity - SQL Injection (auto-resolved)
+curl "http://localhost:8080/?id=1' OR '1'='1"
+curl "http://localhost:8080/?id=1' UNION SELECT password FROM users--"
+
+# HIGH Severity - Command Injection (auto-resolved)
+curl "http://localhost:8080/?cmd=; cat /etc/passwd"
+curl "http://localhost:8080/?exec=| whoami"
+
+# MEDIUM Severity - XSS
+curl "http://localhost:8080/?search=<script>alert(1)</script>"
+
+# MEDIUM Severity - Directory Traversal
+curl "http://localhost:8080/?file=../../etc/passwd"
+
+Or use this PowerShell script for bulk traffic:
+
+# Generate 50 attacks
+1..10 | ForEach-Object { curl "http://localhost:8080/?id=$_' OR '1'='1" }
+1..10 | ForEach-Object { curl "http://localhost:8080/?cmd=; cat /etc/passwd" }
+1..10 | ForEach-Object { curl "http://localhost:8080/?search=<script>alert($_)</script>" }
+1..10 | ForEach-Object { curl "http://localhost:8080/?file=../../etc/passwd" }
+1..10 | ForEach-Object { curl "http://localhost:8080/" }
+
+7.2 Start Threat Analysis
+--------------------------
+1. Go to http://localhost:4200
+2. Click "View Analysis" (📊 icon) on any system
+3. Page loads with historical data automatically
+4. Click "Start Analysis" for real-time monitoring
+5. Wait 10-15 seconds
+
+You should see:
+✅ Total Requests increasing
+✅ Threats Detected increasing
+✅ High severity threats auto-resolved
+✅ Charts populating
+✅ Recent alerts in table
+
+7.3 Check Auto-Resolution
+--------------------------
+High severity threats are automatically:
+1. Detected by ML + pattern matching
+2. Logged to remote system (/var/log/threat_detection_alerts.log)
+3. Marked as "resolved" with status "auto-system"
+4. Added to block script (/tmp/block_threats.sh)
+
+Verify remote logging:
+docker exec monitored_system_1 cat /var/log/threat_detection_alerts.log
+docker exec monitored_system_1 cat /tmp/block_threats.sh
+
+================================================================================
+SECTION 8: FEATURES DEMONSTRATION
+================================================================================
+
+8.1 Dashboard Features
+----------------------
+✅ Multi-system monitoring (switch between systems)
+✅ Real-time threat detection (auto-refresh every 5 sec)
+✅ 5 statistics cards (requests, threats, severity, rate, auto-resolved)
+✅ 4 charts (line, pie, bar, resolution tracking)
+✅ Recent alerts table with actions
+✅ Auto-load data on page open
+✅ Auto-stop analysis on page exit
+
+8.2 Threat Detection Methods
+-----------------------------
+1. Pattern-based detection (SQL, XSS, Command Injection, etc.)
+2. Machine Learning (Random Forest classifier)
+3. OSINT threat intelligence (optional with API keys)
+4. Failed login detection (brute force)
+
+8.3 Automatic Response System
+------------------------------
+When HIGH severity threat detected:
+→ Log written to remote system (/var/log/threat_detection_alerts.log)
+→ Alert file created (/tmp/threat_alert_[ID].txt)
+→ Block script updated (/tmp/block_threats.sh)
+→ Status changed to "resolved" automatically
+→ Marked as "auto-system" resolution
+
+Medium/Low threats require manual resolution (click ✓ button in alerts table)
+
+8.4 Manual Actions
+------------------
+In alerts table:
+📤 Send icon - Manually log high severity threat to remote system
+✓ Check icon - Manually mark threat as resolved
+✓✓ Icon - Already resolved (shows resolved status)
+
+================================================================================
+SECTION 9: TROUBLESHOOTING
+================================================================================
+
+Issue: Backend won't start
+Solution: 
+- Check .env password is correct
+- Verify PostgreSQL is running
+- Check port 8000 is not in use
+
+Issue: Frontend won't start
+Solution:
+- Run: npm install
+- Check port 4200 is not in use
+- Verify Angular CLI is installed: ng version
+
+Issue: Can't connect to Docker container
+Solution:
+- Use IP: 127.0.0.1 (NOT localhost)
+- Verify container is running: docker ps
+- Check SSH port is correct (2222 or 2223)
+- Password is: root
+
+Issue: No threats detected
+Solution:
+- Generate attack traffic (see Section 7.1)
+- Verify Apache is running in container
+- Check backend console for analysis logs
+
+Issue: Charts are empty
+Solution:
+- Generate more traffic
+- Wait 10-15 seconds after starting analysis
+- Check browser console for errors
+
+Issue: Port already in use
+Solution:
+- Find process: netstat -ano | findstr :8000
+- Kill process: taskkill /PID [PID_NUMBER] /F
+
+================================================================================
+SECTION 10: RUNNING THE APPLICATION (DAILY USE)
+================================================================================
+
+10.1 Start Everything
+----------------------
+Terminal 1 - Backend:
+cd backend
+python run.py
+
+Terminal 2 - Frontend:
+cd frontend
+ng serve
+
+Terminal 3 - Docker (if not running):
+docker start monitored_system_1
+docker exec monitored_system_1 service apache2 start
+
+Browser:
+http://localhost:4200
+
+10.2 Stop Everything
+--------------------
+1. Stop analysis in browser (click "Stop Analysis" button)
+2. Ctrl+C in backend terminal
+3. Ctrl+C in frontend terminal
+4. docker stop monitored_system_1 (optional - containers can keep running)
+
+================================================================================
+SECTION 11: PROJECT STRUCTURE
+================================================================================
+
+threat-detection-project/
+├── backend/
+│   ├── app/
+│   │   ├── models/          # Database models
+│   │   ├── schemas/         # API request/response schemas
+│   │   ├── routers/         # API endpoints
+│   │   ├── services/        # Business logic
+│   │   └── utils/           # Helpers
+│   ├── ml_models/           # Trained ML model
+│   ├── .env                 # Configuration (EDIT YOUR PASSWORD HERE!)
+│   ├── requirements.txt     # Python dependencies
+│   ├── init_db.py          # Database setup script
+│   ├── create_model.py     # ML model creation
+│   ├── update_db.py        # Database migrations
+│   └── run.py              # Application starter
+└── frontend/
+    ├── src/
+    │   └── app/
+    │       ├── components/  # UI components
+    │       ├── services/    # HTTP services
+    │       └── models/      # TypeScript interfaces
+    ├── package.json         # Node dependencies
+    └── angular.json         # Angular configuration
+
+================================================================================
+SECTION 12: SYSTEM FEATURES SUMMARY
+================================================================================
+
+✅ Real-time log collection via SSH
+✅ 6+ attack types detected (SQL Injection, XSS, Command Injection, etc.)
+✅ Machine Learning + Pattern-based detection
+✅ Automatic high-severity threat response
+✅ Remote system logging for IP blocking
+✅ Multi-system monitoring support
+✅ Interactive visualization dashboard
+✅ Resolution tracking (detected vs resolved)
+✅ Manual threat management
+✅ OSINT integration (optional)
+
+================================================================================
+SUCCESS! 🎉
+================================================================================
+
+Your OSINT-Based Cyber Threat Detection System is now running!
+
+Access Points:
+- Frontend Dashboard: http://localhost:4200
+- Backend API Docs:   http://localhost:8000/docs
+- System 1 Web:       http://localhost:8080
+- System 2 Web:       http://localhost:8081
+
+Default Credentials:
+- PostgreSQL: postgres / [your_password]
+- Docker SSH: root / root
+
+Next Steps:
+1. Generate attack traffic (Section 7.1)
+2. Start analysis on each system
+3. Watch threats being detected and auto-resolved!
+
+For questions or issues, check Section 9 (Troubleshooting).
+
+================================================================================

@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: dvwa_test
+    ports:
+      - "8080:80"
+    networks:
+      - threat_net
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=dvwa
+      - MYSQL_DATABASE=dvwa
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:5.7
+    container_name: dvwa_mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=dvwa
+    networks:
+      - threat_net
+
+  vulnerable_web:
+    image: nginx:alpine
+    container_name: vulnerable_web
+    ports:
+      - "8081:80"
+    volumes:
+      - ./test_logs:/var/log/nginx
+    networks:
+      - threat_net
+
+networks:
+  threat_net:
+    driver: bridge
