@@ -307,6 +307,7 @@ export class VisualizationComponent implements OnInit, OnDestroy {
       );
       this.lineChartData.datasets[0].data = data.time_series_data.map(d => d.request_count || 0);
       this.lineChartData.datasets[1].data = data.time_series_data.map(d => d.threat_count || 0);
+      this.lineChartData = { ...this.lineChartData };
     }
 
     // Pie Chart - use snake_case
@@ -316,6 +317,7 @@ export class VisualizationComponent implements OnInit, OnDestroy {
       data.medium_severity_threats || 0,
       data.low_severity_threats || 0
     ];
+    this.pieChartData = { ...this.pieChartData };
 
     console.log('Pie chart data:', this.pieChartData.datasets[0].data);
 
@@ -323,6 +325,7 @@ export class VisualizationComponent implements OnInit, OnDestroy {
     if (data.top_attack_types && Array.isArray(data.top_attack_types)) {
       this.barChartData.labels = data.top_attack_types.map(t => t.name || 'Unknown');
       this.barChartData.datasets[0].data = data.top_attack_types.map(t => t.count || 0);
+      this.barChartData = { ...this.barChartData };
     }
 
     console.log('Bar chart data:', this.barChartData.datasets[0].data);

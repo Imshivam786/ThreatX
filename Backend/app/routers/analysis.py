@@ -131,7 +131,7 @@ async def get_analysis_status(
 @router.get("/threats/{system_id}", response_model=ThreatData)
 async def get_threat_data(
     system_id: int,
-    hours: int = 24,
+    hours: int = 168,
     db: Session = Depends(get_db)
 ):
     """

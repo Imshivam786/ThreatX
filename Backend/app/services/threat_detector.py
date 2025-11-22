@@ -18,50 +18,176 @@ class ThreatDetector:
         self.ml_model = MLModel()
         self.osint_collector = OSINTCollector()
         
-        # Attack patterns for rule-based detection
+        # IMPROVED: Comprehensive attack patterns with proper HIGH severity detection
         self.attack_patterns = {
+            # ========== HIGH SEVERITY ==========
             'SQL Injection': [
-                r"(\bUNION\b.*\bSELECT\b)",
-                r"(\bOR\b\s+['\"]?\d+['\"]?\s*=\s*['\"]?\d+)",
-                r"(;.*DROP\s+TABLE)",
-                r"('|\")(\s)*(OR|AND)(\s)*('|\")?\d+('|\")?\s*(=|>|<)",
-                r"(EXEC(\s|\+)+(s|x)p\w+)"
+                # Advanced SQL Injection - UNION attacks
+                r"union\s+(all\s+)?select",                    # UNION SELECT (case-insensitive)
+                r"union.*select.*from",                        # UNION with FROM
+                
+                # Database enumeration
+                r"information_schema",                         # Schema access
+                r"sysobjects",                                # MSSQL system objects
+                r"syscolumns",                                # MSSQL columns
+                
+                # Time-based blind SQL injection
+                r"sleep\s*\(",                                # MySQL SLEEP
+                r"waitfor\s+delay",                           # MSSQL WAITFOR
+                r"benchmark\s*\(",                            # MySQL BENCHMARK
+                r"pg_sleep",                                  # PostgreSQL sleep
+                
+                # Boolean-based blind
+                r"and\s+1\s*=\s*1\s+union",                  # Advanced UNION
+                r"extractvalue\s*\(",                         # XML extraction
+                r"updatexml\s*\(",                            # XML update
+                
+                # Data exfiltration
+                r"load_file\s*\(",                            # File reading
+                r"into\s+outfile",                            # File writing
+                
+                # Stacked queries
+                r";\s*drop\s+table",                          # DROP TABLE
+                r";\s*exec",                                  # Execute command
             ],
-            'XSS': [
-                r"<script[^>]*>.*?</script>",
-                r"javascript:",
-                r"onerror\s*=",
-                r"onload\s*="
-            ],
+            
             'Command Injection': [
-                r";\s*(ls|cat|wget|curl|nc|bash|sh)\s+",
-                r"\|\s*(ls|cat|wget|curl|nc|bash|sh)\s+",
-                r"&&\s*(ls|cat|wget|curl|nc|bash|sh)\s+",
-                r"`.*`"
+                # Critical file access
+                r"/etc/shadow",                               # Shadow file (passwords)
+                r"/etc/passwd",                               # User accounts
+                r"cat\s+/etc/(shadow|passwd)",               # Reading sensitive files
+                r"type\s+.*\\system32",                       # Windows system files
+                
+                # Remote shells
+                r"nc\s+-e",                                   # Netcat reverse shell
+                r"bash\s+-i",                                 # Interactive bash
+                r"/bin/bash\s+-i",                           # Full path bash
+                r"/bin/sh\s+-i",                             # Interactive sh
+                r"bash\s+-c",                                # Bash command execution
+                
+                # Downloaders (malware)
+                r"wget\s+http",                              # Download via wget
+                r"curl.*http.*-o",                           # Curl download
+                r"curl.*http.*>",                            # Curl redirect
+                
+                # Script execution
+                r"python\s+-c",                              # Python one-liner
+                r"perl\s+-e",                                # Perl one-liner
+                r"ruby\s+-e",                                # Ruby one-liner
+                r"php\s+-r",                                 # PHP execution
+                
+                # Destructive commands
+                r"rm\s+-rf",                                 # Remove files
+                r"dd\s+if=",                                 # Disk operations
+                r"mkfs",                                     # Format filesystem
+                r"chmod\s+777",                              # Permission changes
+                
+                # Command chaining
+                r";\s*(cat|ls|whoami|id|pwd)",              # Semicolon chaining
+                r"\|\s*(cat|ls|whoami|id|pwd)",             # Pipe chaining
+                r"&&\s*(cat|ls|whoami|id|pwd)",             # AND chaining
+                r"`[^`]+`",                                  # Backtick execution
+                r"\$\([^)]+\)",                              # Command substitution
             ],
-            'Brute Force': [
-                r"Failed password for",
-                r"authentication failure",
-                r"Invalid user",
-                r"Failed login",
-                r"Access denied"
+            
+            'Remote Code Execution': [
+                r"eval\s*\(",                                # Eval function
+                r"exec\s*\(",                                # Exec function
+                r"system\s*\(",                              # System function
+                r"shell_exec\s*\(",                          # PHP shell_exec
+                r"passthru\s*\(",                            # PHP passthru
+                r"popen\s*\(",                               # Process open
+                r"proc_open\s*\(",                           # Process open
+                r"assert\s*\(",                              # PHP assert
             ],
-            'Port Scan': [
-                r"SYN.*SYN.*SYN",
-                r"nmap",
-                r"port scan",
-                r"connection attempt.*refused"
+            
+            # ========== MEDIUM SEVERITY ==========
+            'XSS': [
+                r"<script[^>]*>",                            # Script tags
+                r"</script>",                                # Closing script
+                r"javascript:",                               # JavaScript protocol
+                r"onerror\s*=",                              # Error handler
+                r"onload\s*=",                               # Load handler
+                r"onclick\s*=",                              # Click handler
+                r"onmouseover\s*=",                          # Mouse handler
+                r"<iframe",                                  # Iframe injection
+                r"<svg.*onload",                             # SVG with event
+                r"document\.cookie",                         # Cookie theft
+                r"document\.write",                          # DOM write
+                r"window\.location",                         # Redirection
+                r"eval\s*\(.*atob",                         # Encoded eval
             ],
+            
             'Directory Traversal': [
-                r"\.\./\.\./",
-                r"\.\.\\\.\.\\",
-                r"%2e%2e%2f",
-                r"%252e%252e%252f"
+                r"\.\./\.\./",                               # Path traversal
+                r"\.\.\\\.\.\\",                             # Windows traversal
+                r"%2e%2e%2f",                                # URL encoded ../ 
+                r"%252e%252e%252f",                          # Double encoded
+                r"\.\.;",                                    # IIS traversal
+                r"\.\.%2f",                                  # Mixed encoding
+                r"\.\.%5c",                                  # Windows encoded
             ],
+            
+            'LDAP Injection': [
+                r"\*\)\(uid=\*",                             # LDAP wildcard
+                r"\)\(|\(",                                  # LDAP operators
+                r"uid=.*\)",                                 # UID injection
+            ],
+            
+            # ========== LOW SEVERITY ==========
+            'SQL Injection (Basic)': [
+                r"'\s*or\s*'.*'=",                           # ' OR '1'='1
+                r"'\s*or\s*1\s*=\s*1",                       # ' OR 1=1
+                r"admin'\s*--",                              # Comment bypass
+                r"'\s*and\s*1\s*=\s*1",                      # ' AND 1=1
+                r"'\s*or\s*'1",                              # ' OR '1
+            ],
+            
+            'Brute Force': [
+                r"failed\s+password",                        # Failed login
+                r"authentication\s+failure",                 # Auth failure
+                r"invalid\s+user",                           # Invalid user
+                r"failed\s+login",                           # Failed login
+                r"access\s+denied",                          # Access denied
+            ],
+            
+            'Port Scan': [
+                r"syn.*syn.*syn",                            # SYN flood
+                r"nmap",                                     # Nmap scan
+                r"port\s+scan",                              # Port scan
+                r"connection\s+attempt.*refused",            # Connection refused
+            ],
+            
             'File Inclusion': [
-                r"(include|require)(_once)?\s*\(?.*\.(php|asp|jsp)",
-                r"(file|path)=.*\.(php|asp|jsp|txt|log)"
-            ]
+                r"(include|require)(_once)?\s*\(?.*\.(php|asp|jsp)",  # PHP inclusion
+                r"(file|path)=.*\.(php|asp|jsp|txt|log)",            # File parameter
+            ],
+            
+            'Suspicious Activity': [
+                r"/admin",                                   # Admin access
+                r"/phpmyadmin",                              # PhpMyAdmin
+                r"\.env",                                    # Environment files
+                r"\.git",                                    # Git repository
+                r"wp-config",                                # WordPress config
+                r"backup\.(zip|sql|tar|gz)",                # Backup files
+                r"\.bak$",                                   # Backup extension
+                r"database\.sql",                            # Database dump
+            ],
+        }
+        
+        # Define severity levels for each attack type
+        self.attack_severity_map = {
+            'SQL Injection': 'High',
+            'Command Injection': 'High',
+            'Remote Code Execution': 'High',
+            'XSS': 'Medium',
+            'Directory Traversal': 'Medium',
+            'LDAP Injection': 'Medium',
+            'SQL Injection (Basic)': 'Low',
+            'Brute Force': 'Low',
+            'Port Scan': 'Low',
+            'File Inclusion': 'Medium',
+            'Suspicious Activity': 'Low',
         }
     
     def analyze_log(self, log_entry: LogEntry, system_id: int) -> Dict:
@@ -70,7 +196,7 @@ class ThreatDetector:
         """
         log_text = log_entry.raw_log
         
-        # 1. Rule-based detection
+        # 1. Rule-based detection (PRIORITY - most reliable)
         rule_result = self._rule_based_detection(log_text)
         
         # 2. Extract IP and check OSINT
@@ -80,24 +206,25 @@ class ThreatDetector:
         if ip_address:
             osint_match = self.osint_collector.check_ip_in_osint(ip_address, self.db)
         
-        # 3. ML-based detection
+        # 3. ML-based detection (FALLBACK - less reliable)
         ml_result = self.ml_model.predict_threat(log_text)
         
         # Combine results
         is_threat = rule_result['is_threat'] or osint_match or ml_result['is_threat']
         
-        # Determine severity
+        # Determine severity (FIXED: Pattern-based takes priority!)
         severity = self._calculate_severity(rule_result, osint_match, ml_result)
         
         # Determine attack type
         attack_type = rule_result.get('attack_type') or ml_result.get('attack_type', 'Unknown')
         
-        # Calculate confidence
-        confidence = max(
-            rule_result.get('confidence', 0.0),
-            ml_result.get('confidence', 0.0),
-            1.0 if osint_match else 0.0
-        )
+        # Calculate confidence (pattern-based gets highest confidence)
+        if rule_result.get('is_threat'):
+            confidence = 0.95  # Pattern matches are highly reliable
+        elif osint_match:
+            confidence = 1.0   # OSINT matches are definitive
+        else:
+            confidence = ml_result.get('confidence', 0.0)
         
         # Generate description
         description = self._generate_description(
@@ -123,14 +250,17 @@ class ThreatDetector:
         """
         Detect threats using predefined patterns
         """
+        # Check patterns in order (HIGH → MEDIUM → LOW)
         for attack_type, patterns in self.attack_patterns.items():
             for pattern in patterns:
-                if re.search(pattern, log_text, re.IGNORECASE):
+                match = re.search(pattern, log_text, re.IGNORECASE)
+                if match:
                     return {
                         'is_threat': True,
                         'attack_type': attack_type,
-                        'confidence': 0.9,
-                        'pattern_matched': pattern
+                        'confidence': 0.95,
+                        'pattern_matched': pattern,
+                        'matched_text': match.group(0)
                     }
         
         return {
@@ -139,23 +269,6 @@ class ThreatDetector:
             'confidence': 0.0
         }
     
-    def _extract_ip(self, log_text: str) -> str:
-        """
-        Extract IP address from log entry
-        """
-        ip_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
-        matches = re.findall(ip_pattern, log_text)
-        
-        if matches:
-            # Filter out local IPs
-            for ip in matches:
-                if not ip.startswith(('127.', '10.', '192.168.', '172.')):
-                    return ip
-            # If all are local, return the first one
-            return matches[0]
-        
-        return None
-    
     def _calculate_severity(
         self,
         rule_result: Dict,
@@ -163,31 +276,42 @@ class ThreatDetector:
         ml_result: Dict
     ) -> str:
         """
-        Calculate threat severity based on all detection methods
+        Calculate threat severity (FIXED: Pattern-based takes priority!)
         """
-        # High severity attacks
-        high_severity_attacks = ['SQL Injection', 'Command Injection', 'File Inclusion']
+        # If pattern matched, use predefined severity
+        if rule_result.get('is_threat'):
+            attack_type = rule_result.get('attack_type')
+            return self.attack_severity_map.get(attack_type, 'Medium')
         
-        if rule_result.get('attack_type') in high_severity_attacks:
-            return 'High'
-        
+        # OSINT matches are always HIGH
         if osint_match:
             return 'High'
         
-        if ml_result.get('confidence', 0.0) > 0.8:
+        # ML as fallback (less reliable)
+        ml_confidence = ml_result.get('confidence', 0.0)
+        if ml_confidence > 0.8:
             return 'High'
-        
-        # Medium severity
-        medium_severity_attacks = ['XSS', 'Directory Traversal', 'Brute Force']
-        
-        if rule_result.get('attack_type') in medium_severity_attacks:
+        elif ml_confidence > 0.5:
             return 'Medium'
+        else:
+            return 'Low'
+    
+    # ... (keep all other methods unchanged: _extract_ip, _generate_description, 
+    #      _get_detection_method, analyze_batch, detect_brute_force, 
+    #      log_threat_to_remote_system)
+    
+    def _extract_ip(self, log_text: str) -> str:
+        """Extract IP address from log entry"""
+        ip_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
+        matches = re.findall(ip_pattern, log_text)
         
-        if ml_result.get('confidence', 0.0) > 0.5:
-            return 'Medium'
+        if matches:
+            for ip in matches:
+                if not ip.startswith(('127.', '10.', '192.168.', '172.')):
+                    return ip
+            return matches[0]
         
-        # Low severity
-        return 'Low'
+        return None
     
     def _generate_description(
         self,
@@ -197,9 +321,7 @@ class ThreatDetector:
         rule_result: Dict,
         ml_result: Dict
     ) -> str:
-        """
-        Generate human-readable description of the threat
-        """
+        """Generate human-readable description of the threat"""
         description_parts = []
         
         if attack_type:
@@ -225,9 +347,7 @@ class ThreatDetector:
         osint_match: bool,
         ml_result: Dict
     ) -> str:
-        """
-        Determine which detection method identified the threat
-        """
+        """Determine which detection method identified the threat"""
         methods = []
         
         if rule_result.get('is_threat'):
@@ -242,9 +362,7 @@ class ThreatDetector:
         return ', '.join(methods) if methods else 'None'
     
     def analyze_batch(self, log_entries: List[LogEntry], system_id: int) -> List[Dict]:
-        """
-        Analyze multiple log entries in batch
-        """
+        """Analyze multiple log entries in batch"""
         results = []
         
         for log_entry in log_entries:
@@ -259,14 +377,11 @@ class ThreatDetector:
         time_window_minutes: int = 5,
         threshold: int = 5
     ) -> bool:
-        """
-        Detect brute force attacks by counting failed login attempts
-        """
+        """Detect brute force attacks by counting failed login attempts"""
         from datetime import timedelta
         
         time_threshold = datetime.utcnow() - timedelta(minutes=time_window_minutes)
         
-        # Count failed authentication attempts
         failed_attempts = self.db.query(LogEntry).filter(
             LogEntry.system_id == system_id,
             LogEntry.timestamp >= time_threshold,
@@ -278,26 +393,22 @@ class ThreatDetector:
         return failed_attempts >= threshold
     
     def log_threat_to_remote_system(
-            self,
-            alert_id: int,
-            system_ip: str,
-            system_port: int,
-            system_username: str,
-            system_password: str
-        ) -> bool:
-        """
-        Log high severity threat to remote system
-        """
+        self,
+        alert_id: int,
+        system_ip: str,
+        system_port: int,
+        system_username: str,
+        system_password: str
+    ) -> bool:
+        """Log high severity threat to remote system"""
         from app.services.remote_logger import RemoteLogger
         from app.models import Alert
         
-        # Get alert details
         alert = self.db.query(Alert).filter(Alert.id == alert_id).first()
         
         if not alert or alert.severity != "High":
             return False
         
-        # Prepare threat data
         threat_data = {
             'alert_id': alert.id,
             'severity': alert.severity,
@@ -307,7 +418,6 @@ class ThreatDetector:
             'timestamp': alert.timestamp
         }
         
-        # Log to remote system
         remote_logger = RemoteLogger()
         success = remote_logger.log_high_severity_threat(
             system_ip,
@@ -318,9 +428,7 @@ class ThreatDetector:
         )
         
         if success:
-            # Update alert
             alert.logged_to_system = True
             self.db.commit()
         
         return success
-
