@@ -12,7 +12,6 @@ from app.services.threat_detector import ThreatDetector
 
 router = APIRouter()
 
-# Store active analysis sessions
 active_sessions = {}
 
 
@@ -50,14 +49,12 @@ async def start_analysis(
     db.commit()
     db.refresh(session)
     
-    # Store in active sessions
     active_sessions[system_id] = {
         "is_running": True,
         "session_id": session.id,
         "start_time": datetime.utcnow()
     }
     
-    # Start background analysis
     background_tasks.add_task(run_analysis, system_id, session.id, db)
     
     return {
@@ -81,10 +78,8 @@ async def stop_analysis(
             detail="No active analysis session for this system"
         )
     
-    # Mark as stopped
     active_sessions[system_id]["is_running"] = False
     
-    # Update database session
     session_id = active_sessions[system_id]["session_id"]
     session = db.query(AnalysisSession).filter(AnalysisSession.id == session_id).first()
     
@@ -348,8 +343,11 @@ async def get_threat_trends(
 # Background analysis function
 def run_analysis(system_id: int, session_id: int, db: Session):
     """
-    Background task to continuously analyze logs
+    Background task to continuously analyze logs (DEDUPLICATED)
     """
+    from datetime import datetime, timedelta
+    from sqlalchemy import desc
+    
     log_collector = LogCollector()
     threat_detector = ThreatDetector(db)
     
@@ -359,8 +357,27 @@ def run_analysis(system_id: int, session_id: int, db: Session):
     if not system:
         return
     
+    # 🔥 TRACK PROCESSED LOGS IN MEMORY (prevents re-analyzing same logs)
+    processed_log_hashes = set()
+    
+    # 🔥 GET EXISTING LOGS FROM DB (on startup, load already-seen logs)
+    existing_logs = db.query(LogEntry.raw_log).filter(
+        LogEntry.system_id == system_id
+    ).distinct().all()
+    
+    for (log,) in existing_logs:
+        if log:
+            processed_log_hashes.add(hash(log))
+    
+    print(f"✅ Loaded {len(processed_log_hashes)} existing unique logs for deduplication")
+    
+    loop_count = 0
+    
     while active_sessions.get(system_id, {}).get("is_running", False):
         try:
+            loop_count += 1
+            print(f"\n🔄 Analysis Loop #{loop_count} for system {system_id}")
+            
             # Collect logs
             logs = log_collector.collect_logs(
                 system.ip_address,
@@ -370,8 +387,31 @@ def run_analysis(system_id: int, session_id: int, db: Session):
                 system.log_path
             )
             
-            # Analyze logs
+            print(f"📥 Fetched {len(logs)} log lines from remote system")
+            
+            # 🔥 DEDUPLICATE LOGS (only process NEW logs)
+            new_logs = []
+            duplicate_count = 0
+            
             for log_line in logs:
+                if not log_line.strip():
+                    continue
+                
+                log_hash = hash(log_line)
+                
+                # Skip if already processed
+                if log_hash in processed_log_hashes:
+                    duplicate_count += 1
+                    continue
+                
+                # Mark as processed
+                processed_log_hashes.add(log_hash)
+                new_logs.append(log_line)
+            
+            print(f"🆕 New logs: {len(new_logs)} | 🔁 Duplicates skipped: {duplicate_count}")
+            
+            # 🔥 PROCESS EACH NEW LOG
+            for log_line in new_logs:
                 # Save log entry
                 log_entry = LogEntry(
                     system_id=system_id,
@@ -386,6 +426,8 @@ def run_analysis(system_id: int, session_id: int, db: Session):
                 # Detect threats
                 threat_result = threat_detector.analyze_log(log_entry, system_id)
                 
+                # ✅ CREATE ALERT FOR EVERY THREAT (no duplicate check)
+                # Each new log = new alert, regardless of IP/attack type
                 if threat_result["is_threat"]:
                     # Create alert
                     alert = Alert(
@@ -399,7 +441,9 @@ def run_analysis(system_id: int, session_id: int, db: Session):
                     )
                     db.add(alert)
                     db.commit()
-                    db.refresh(alert)  # Important: get the alert ID
+                    db.refresh(alert)
+                    
+                    print(f"🚨 NEW ALERT: {alert.severity} - {alert.attack_type} from {alert.source_ip}")
                     
                     # 🔥 AUTO-LOG HIGH SEVERITY THREATS
                     if threat_result["severity"] == "High":
@@ -443,11 +487,11 @@ def run_analysis(system_id: int, session_id: int, db: Session):
                         except Exception as e:
                             print(f"❌ Error in auto-logging: {str(e)}")
                     
-                    # Update session stats
+                    # Update session stats - threats detected
                     session = db.query(AnalysisSession).filter(
                         AnalysisSession.id == session_id
                     ).first()
-
+                    
                     if session:
                         session.threats_detected += 1
                         db.commit()
@@ -458,7 +502,7 @@ def run_analysis(system_id: int, session_id: int, db: Session):
                 log_entry.threat_score = threat_result.get("confidence", 0.0)
                 db.commit()
                 
-                # Update session stats
+                # Update session stats - logs analyzed
                 session = db.query(AnalysisSession).filter(
                     AnalysisSession.id == session_id
                 ).first()
@@ -470,14 +514,37 @@ def run_analysis(system_id: int, session_id: int, db: Session):
             system.last_analyzed = datetime.utcnow()
             db.commit()
             
+            print(f"✅ Loop #{loop_count} complete. Processed {len(new_logs)} new logs.")
+            
+            # 🔥 MEMORY MANAGEMENT: Limit hash set size (keep last 10,000 logs)
+            if len(processed_log_hashes) > 10000:
+                print("🧹 Clearing old log hashes to free memory...")
+                # Keep only recent logs from DB
+                recent_logs = db.query(LogEntry.raw_log).filter(
+                    LogEntry.system_id == system_id
+                ).order_by(desc(LogEntry.timestamp)).limit(5000).all()
+                
+                processed_log_hashes = set()
+                for (log,) in recent_logs:
+                    if log:
+                        processed_log_hashes.add(hash(log))
+                
+                print(f"✅ Reset to {len(processed_log_hashes)} recent logs")
+            
             # Wait before next collection
             import time
-            time.sleep(10)  # Collect every 10 seconds during demo
+            time.sleep(10)
             
         except Exception as e:
-            print(f"Error in analysis loop: {str(e)}")
+            print(f"❌ Error in analysis loop: {str(e)}")
+            import traceback
+            traceback.print_exc()
             import time
             time.sleep(5)
+    
+    print(f"⏹️  Analysis stopped for system {system_id}")
+
+
 
     
 @router.post("/resolve-alert/{alert_id}")

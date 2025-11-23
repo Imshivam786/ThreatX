@@ -1,5 +1,4 @@
 <div class="visualization-container">
-    <!-- System Header -->
     <mat-card class="header-card" *ngIf="system">
         <mat-card-header>
             <mat-card-title>
@@ -26,23 +25,19 @@
         </mat-card-actions>
     </mat-card>
 
-    <!-- Loading State -->
     <div *ngIf="loading" class="loading-container">
         <mat-spinner></mat-spinner>
         <p>Loading system information...</p>
     </div>
 
-    <!-- No Data State -->
     <mat-card *ngIf="!loading && !threatData && !analyzing" class="empty-state">
         <mat-icon>info</mat-icon>
         <h2>No Analysis Data Available</h2>
         <p>Click "Start Analysis" to begin monitoring this system for threats</p>
     </mat-card>
 
-    <!-- Threat Data Dashboard -->
     <div *ngIf="threatData" class="dashboard-grid">
 
-        <!-- Statistics Cards -->
         <div class="stats-row">
             <mat-card class="stat-card">
                 <mat-card-content>
@@ -105,8 +100,7 @@
             </mat-card>
         </div>
 
-        <!-- Charts Row 1: Time Series -->
-        <!-- Charts Row 1: Time Series -->
+        
         <mat-card class="chart-card full-width">
             <mat-card-header>
                 <mat-card-title>
@@ -128,7 +122,6 @@
         </mat-card>
 
 
-        <!-- Charts Row 2: Severity & Attack Types (Side by Side) -->
         <div class="charts-row">
             <mat-card class="chart-card">
                 <mat-card-header>
@@ -182,7 +175,6 @@
         </mat-card>
 
 
-        <!-- Recent Alerts Table -->
         <mat-card class="alerts-card full-width">
             <mat-card-header>
                 <mat-card-title>
@@ -194,13 +186,11 @@
                 <div class="table-container" *ngIf="threatData.recent_alerts && threatData.recent_alerts.length > 0">
                     <table mat-table [dataSource]="threatData.recent_alerts" class="alerts-table">
 
-                        <!-- Timestamp Column -->
                         <ng-container matColumnDef="timestamp">
                             <th mat-header-cell *matHeaderCellDef>Timestamp</th>
                             <td mat-cell *matCellDef="let alert">{{ formatTimestamp(alert.timestamp) }}</td>
                         </ng-container>
 
-                        <!-- Severity Column -->
                         <ng-container matColumnDef="severity">
                             <th mat-header-cell *matHeaderCellDef>Severity</th>
                             <td mat-cell *matCellDef="let alert">
@@ -210,7 +200,6 @@
                             </td>
                         </ng-container>
 
-                        <!-- Attack Type Column -->
                         <ng-container matColumnDef="attackType">
                             <th mat-header-cell *matHeaderCellDef>Attack Type</th>
                             <td mat-cell *matCellDef="let alert">
@@ -218,7 +207,6 @@
                             </td>
                         </ng-container>
 
-                        <!-- Source IP Column -->
                         <ng-container matColumnDef="sourceIp">
                             <th mat-header-cell *matHeaderCellDef>Source IP</th>
                             <td mat-cell *matCellDef="let alert">
@@ -226,7 +214,6 @@
                             </td>
                         </ng-container>
 
-                        <!-- Description Column -->
                         <ng-container matColumnDef="description">
                             <th mat-header-cell *matHeaderCellDef>Description</th>
                             <td mat-cell *matCellDef="let alert">{{ alert.description }}</td>
@@ -234,7 +221,6 @@
 
                         <tr mat-header-row *matHeaderRowDef="alertColumns"></tr>
                         <tr mat-row *matRowDef="let row; columns: alertColumns;"></tr>
-                        <!-- Status Column -->
                         <ng-container matColumnDef="status">
                             <th mat-header-cell *matHeaderCellDef>Status</th>
                             <td mat-cell *matCellDef="let alert">
@@ -246,7 +232,6 @@
                             </td>
                         </ng-container>
 
-                        <!-- Actions Column -->
                         <ng-container matColumnDef="actions">
                             <th mat-header-cell *matHeaderCellDef>Actions</th>
                             <td mat-cell *matCellDef="let alert">

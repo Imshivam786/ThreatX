@@ -196,18 +196,31 @@ class ThreatDetector:
         """
         log_text = log_entry.raw_log
         
-        # 1. Rule-based detection (PRIORITY - most reliable)
-        rule_result = self._rule_based_detection(log_text)
+        # 🔥 DECODE URL-ENCODED CHARACTERS
+        # Apache logs URLs with %20, %27, etc.
+        # Decode them so patterns can match properly
+        try:
+            log_text_decoded = unquote(log_text)
+        except:
+            log_text_decoded = log_text  # If decode fails, use original
         
-        # 2. Extract IP and check OSINT
+        # DEBUG: Print both versions
+        if log_text != log_text_decoded:
+            print(f"📝 Original: {log_text[:80]}")
+            print(f"📝 Decoded:  {log_text_decoded[:80]}")
+        
+        # 1. Rule-based detection (use DECODED text)
+        rule_result = self._rule_based_detection(log_text_decoded)
+        
+        # 2. Extract IP (use original text - IPs don't need decoding)
         ip_address = self._extract_ip(log_text)
         osint_match = False
         
         if ip_address:
             osint_match = self.osint_collector.check_ip_in_osint(ip_address, self.db)
         
-        # 3. ML-based detection (FALLBACK - less reliable)
-        ml_result = self.ml_model.predict_threat(log_text)
+        # 3. ML-based detection (use decoded text)
+        ml_result = self.ml_model.predict_threat(log_text_decoded)
         
         # Combine results
         is_threat = rule_result['is_threat'] or osint_match or ml_result['is_threat']
@@ -250,11 +263,16 @@ class ThreatDetector:
         """
         Detect threats using predefined patterns
         """
+        # 🔥 ADD DEBUG
+        print(f"🔍 Analyzing: {log_text[:100]}")
+        
         # Check patterns in order (HIGH → MEDIUM → LOW)
         for attack_type, patterns in self.attack_patterns.items():
             for pattern in patterns:
                 match = re.search(pattern, log_text, re.IGNORECASE)
                 if match:
+                    print(f"✅ MATCH FOUND: {attack_type} - {pattern}")
+                    print(f"   Matched text: {match.group(0)}")
                     return {
                         'is_threat': True,
                         'attack_type': attack_type,
@@ -263,11 +281,14 @@ class ThreatDetector:
                         'matched_text': match.group(0)
                     }
         
+        print(f"❌ NO MATCH FOUND")
+        
         return {
             'is_threat': False,
             'attack_type': None,
             'confidence': 0.0
         }
+
     
     def _calculate_severity(
         self,

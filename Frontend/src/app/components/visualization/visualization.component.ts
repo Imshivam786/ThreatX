@@ -34,7 +34,7 @@ import { SystemService } from '../../services/system.service';
 export class VisualizationComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private systemService = inject(SystemService);
-  private analysisService = inject(AnalysisService);  // Now using AnalysisService
+  private analysisService = inject(AnalysisService);
 
   systemId!: number;
   system?: MonitoredSystem;
@@ -49,10 +49,8 @@ export class VisualizationComponent implements OnInit, OnDestroy {
   @ViewChild('barChart') barChart?: BaseChartDirective;
   @ViewChild('resolutionChart') resolutionChart?: BaseChartDirective;
 
-  // Alert columns for table
   alertColumns: string[] = ['timestamp', 'severity', 'attackType', 'sourceIp', 'description', 'status', 'actions'];
 
-  // Line Chart Configuration
   public lineChartType: ChartType = 'line';
   public lineChartData: ChartConfiguration['data'] = {
     datasets: [
@@ -136,7 +134,6 @@ export class VisualizationComponent implements OnInit, OnDestroy {
     }
   };
 
-  // Pie Chart Configuration
   public pieChartType: ChartType = 'pie';
   public pieChartData: ChartConfiguration['data'] = {
     labels: [],
@@ -156,7 +153,6 @@ export class VisualizationComponent implements OnInit, OnDestroy {
     }
   };
 
-  // Bar Chart Configuration
   public barChartType: ChartType = 'bar';
   public barChartData: ChartConfiguration['data'] = {
     labels: [],
@@ -186,15 +182,12 @@ export class VisualizationComponent implements OnInit, OnDestroy {
     this.systemId = +this.route.snapshot.paramMap.get('id')!;
     this.loadSystemInfo();
 
-    // Auto-load threat data once on page load
     this.loadThreatData();
   }
 
   ngOnDestroy(): void {
-    // Stop auto-refresh polling
     this.stopAutoRefresh();
 
-    // Stop analysis on backend if it's running
     if (this.autoRefresh || this.analyzing) {
       console.log('Component destroyed - stopping analysis...');
       this.analysisService.stopAnalysis(this.systemId).subscribe({
@@ -227,13 +220,10 @@ export class VisualizationComponent implements OnInit, OnDestroy {
     this.analyzing = true;
     this.autoRefresh = true;
 
-    // Start analysis on backend using AnalysisService
     this.analysisService.startAnalysis(this.systemId).subscribe({
       next: () => {
-        // Load initial data
         this.loadThreatData();
 
-        // Start auto-refresh every 5 seconds
         this.refreshSubscription = interval(5000).subscribe(() => {
           if (this.autoRefresh) {
             this.loadThreatData();
@@ -252,7 +242,6 @@ export class VisualizationComponent implements OnInit, OnDestroy {
     this.autoRefresh = false;
     this.analyzing = false;
 
-    // Stop analysis on backend
     this.analysisService.stopAnalysis(this.systemId).subscribe({
       next: () => {
         console.log('Analysis stopped');
@@ -272,10 +261,9 @@ export class VisualizationComponent implements OnInit, OnDestroy {
   }
 
   loadThreatData(): void {
-    // Use AnalysisService to get threat data
     this.analysisService.getThreatData(this.systemId).subscribe({
       next: (data) => {
-        console.log('Threat data received:', data); // Debug log
+        console.log('Threat data received:', data);
 
         if (data) {
           this.threatData = data;
@@ -290,7 +278,6 @@ export class VisualizationComponent implements OnInit, OnDestroy {
         console.error('Error loading threat data:', error);
         this.analyzing = false;
 
-        // Show user-friendly message
         alert('Error loading threat data. Check console for details.');
       }
     });
@@ -300,7 +287,6 @@ export class VisualizationComponent implements OnInit, OnDestroy {
   private updateCharts(data: ThreatData): void {
     console.log('Updating charts with data:', data);
 
-    // Line Chart - use snake_case
     if (data.time_series_data && Array.isArray(data.time_series_data)) {
       this.lineChartData.labels = data.time_series_data.map(d =>
         new Date(d.timestamp).toLocaleTimeString()
@@ -310,7 +296,6 @@ export class VisualizationComponent implements OnInit, OnDestroy {
       this.lineChartData = { ...this.lineChartData };
     }
 
-    // Pie Chart - use snake_case
     this.pieChartData.labels = ['High', 'Medium', 'Low'];
     this.pieChartData.datasets[0].data = [
       data.high_severity_threats || 0,
@@ -321,7 +306,6 @@ export class VisualizationComponent implements OnInit, OnDestroy {
 
     console.log('Pie chart data:', this.pieChartData.datasets[0].data);
 
-    // Bar Chart - use snake_case
     if (data.top_attack_types && Array.isArray(data.top_attack_types)) {
       this.barChartData.labels = data.top_attack_types.map(t => t.name || 'Unknown');
       this.barChartData.datasets[0].data = data.top_attack_types.map(t => t.count || 0);
